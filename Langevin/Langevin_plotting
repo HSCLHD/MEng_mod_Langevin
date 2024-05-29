@@ -1,0 +1,326 @@
+include("Langevin_validation.jl")
+script_dir = @__FILE__
+sac_dir = dirname(dirname(dirname(script_dir)))
+
+source_dir = sac_dir
+sim_dir = abspath(joinpath(sac_dir, "sims_x/positions_non_averaged_langevin"))
+# Read all combinations
+all_combs = Matrix(CSV.read(abspath(joinpath(source_dir,"combinations.csv")), DataFrame))
+k_combs = Matrix(CSV.read("k_update_combinations.csv", DataFrame))
+# We use the non-averaged positions as they produce zero oscillation at the end of the autocorrelatio plot
+### 1. Plot std ^ 2 of the dynamics
+# a)  the influence of maxtime
+# Expecting a decay and plateau in the end.
+PyPlot.figure()
+y_limit = zero(1)
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        # if fk >= 5.0 && fgamma == fk && maxtime == 1000
+        if fk == 5.0 && fgamma ==7.5 && maxtime == 1000
+
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        # PyPlot.plot(sigmasquare(maxtime,256,Pos),label = "maxtime = $maxtime")
+        y = sigmasquare(maxtime,256,Pos)
+        PyPlot.plot(y ,label = "γ = k = $fgamma")
+        # y_fit = 0.00023 .- 0.00023* exp.(-x_data*(fgamma/fk)/30.0)
+
+        PyPlot.xlabel("time lag")
+        PyPlot.ylabel("σ²")
+        y_limit[1] = y[500]
+        end
+end 
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+function plot_bestfit(x, p::Float64, tau::Float64)
+    y_fit = p .- p* exp.(-x/tau)
+    PyPlot.plot(x, y_fit, label = "tau = $tau")
+end
+x_data = collect(1:999)
+
+tau_list = 20:5:50
+for tau in tau_list
+    plot_bestfit()
+end
+
+y_fit = 0.00023 .- 0.00023* exp.(-x_data/30.0)
+limit = 0.00047
+y_fit = 0.00049 .- 0.00049* exp.(-x_data/(30.0*1.25))
+
+PyPlot.plot(x_data,y_fit,label = "exponential fit")
+PyPlot.legend()
+
+savefig("sigma_squared_maxtime=1000_gamma_k_ratio=1_find_tau.png")
+close()
+# b) k 
+PyPlot.figure()
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fgamma ==5.0 && maxtime == 1000 
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        PyPlot.plot(sigmasquare(maxtime,256,Pos),label = "k = $fk")
+        PyPlot.xlabel("time lag")
+        PyPlot.ylabel("σ²")
+        # # println(maxtime)
+        end
+
+end 
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+PyPlot.legend()
+savefig("sigma_squared_different_k_gamma =5_maxtime=1000.png")
+close()
+
+# c) gamma
+PyPlot.figure()
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fk ==5.0 && maxtime == 1000 
+            if fgamma == 0.5 || fgamma == 2.0 || fgamma == 5.0 || fgamma == 10.0
+
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+            Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+            PyPlot.plot(sigmasquare(maxtime,256,Pos),label = "gamma = $fgamma")
+
+        # # println(maxtime)
+        end
+    end 
+end 
+
+PyPlot.plot(x_data, y_fit)
+PyPlot.plot(y_data)
+PyPlot.xlabel("time lag")
+PyPlot.ylabel("σ²")
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+PyPlot.legend()
+savefig("sigma_squared_different_maxtime = 1000_k=5.png")
+
+### 1.ii Find the crosscorrelation of the exponential, suggesting a plateauisque model for the standard deviation. with the ratio of gamma/k. plot tau in terms of the ratio
+PyPlot.figure()
+tau_test = 1:0.5:100
+gamma_k = Float64[]
+tau_opt = Float64[]
+x_data = collect(1:999)
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if maxtime == 1000 && fk >= 5.0 && fgamma>= 5.0
+            Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+            y_sigma = vec(sigmasquare(maxtime,256,Pos))
+            ratio = fgamma/fk
+            # if ratio in gamma_k
+            #     gamma_k[findfirst(isequal(ratio), gamma_k)] = ratio
+            #     tau_opt[[findfirst(isequal(ratio), gamma_k)]] = (find_tau_opt(x_data,y_sigma,tau_test)[2] + tau_opt[[findfirst(isequal(ratio), gamma_k)]])/2
+            # else
+            push!(gamma_k,ratio)
+            push!(tau_opt,find_tau_opt(x_data,y_sigma,tau_test)[2])
+        # PyPlot.plot(sigmasquare(maxtime,256,Pos),label = "gamma = $fgamma")
+            # end
+        # # println(maxtime)
+        end
+end 
+# end 
+# y_vec = vec(y_data)
+
+PyPlot.figure()
+PyPlot.scatter(gamma_k[1:end-1],tau_opt[1:end-1])  
+PyPlot.xlabel("γ/k")
+PyPlot.ylabel(L"$\tau_{model} $")
+fit = poly_fit(gamma_k, tau_opt, 1)
+# fit = CurveFit.curve_fit(Polynomial,gamma_k[1:21],tau_opt[1:21],2)
+fit = CurveFit.curve_fit(LinearFit,gamma_k[1:21],tau_opt[1:21])
+
+tau_fit = fit.(gamma_k)
+PyPlot.plot(gamma_k,tau_fit)
+savefig("gamma_k_ratio_tau_linefit.png")
+
+gamma_k
+
+
+PyPlot.legend()
+
+gamma_k
+
+
+
+### 2. Plot the autocor
+# a) time
+PyPlot.figure()
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fk == 5.0 && fgamma ==5.0
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        PyPlot.plot(autovar(maxtime,Pos),label = "maxtime = $maxtime")
+        PyPlot.xlabel("time lag")
+        PyPlot.ylabel("ρ")
+        # # println(maxtime)
+        end
+end 
+PyPlot.legend()
+savefig("autocorrelation_different_time_gamma=5_k=5.png")
+
+# b) k
+PyPlot.figure()
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fgamma ==5.0 && maxtime == 1000 
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        PyPlot.plot(autovar(maxtime,Pos),label = "k = $fk")
+        PyPlot.xlabel("time lag")
+        PyPlot.ylabel("ρ")
+        # # println(maxtime)
+        end
+
+end 
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+PyPlot.legend()
+savefig("autocorrelation_different_k_gamma =5_maxtime=1000.png")
+close()
+
+# c) gamma
+PyPlot.figure()
+gamma_list = [2.0,4.0,6.0,8.0,10.0]
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fk ==5.0 && maxtime == 1000 
+            # if fgamma == 0.5 || fgamma == 2.0 || fgamma == 5.0 || fgamma == 10.0
+            if fgamma in gamma_list
+
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+            Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+            PyPlot.plot(autovar(maxtime,Pos),label = "gamma = $fgamma")
+
+        # # println(maxtime)
+            end
+        end 
+end 
+PyPlot.xlabel("time lag")
+PyPlot.ylabel("ρ")
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+PyPlot.legend()
+savefig("autocorrelation_different_all_gamma_damped_maxtime = 1000_k=5.png")
+
+
+### 3. Plot the dA squared. 
+# Test
+# Pos = Matrix(CSV.read(abspath("/Users/hanshichen/Desktop/engineering/SoftActiveCells/sims_x/positions_non_averaged_langevin/positions_maxtime=1000,dt=0.1,gamma=7.0,kBT=0.25,k=1.0,dev=0.1.csv"), DataFrame))
+# PyPlot.figure()
+# PyPlot.plot(areasquarevar(0.1,1000,Pos))
+# PyPlot.xlabel("t")
+# PyPlot.ylabel("(dA)²")
+# PyPlot.legend()
+# # a. time
+PyPlot.figure()
+for i in 1:239
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = floor(Int,all_combs[i,1]) ;fdt =  all_combs[i,2]; fgamma=all_combs[i,3]; fkBT=all_combs[i,4]; fNcells=256; fk=all_combs[i,6]; fdev=0.1;
+        if fk == 10.0 && fgamma ==5.0
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        PyPlot.plot(areasquarevar(0.1,maxtime,Pos),label = "maxtime = $maxtime")
+        PyPlot.xlabel("t")
+        PyPlot.ylabel("(dA)²")
+        # # println(maxtime)
+        end
+end 
+PyPlot.legend()
+savefig("dAsquared_different_time_gamma=5_k=5.png")
+
+### 4. find the standard deviation wrt k and gamma.
+
+
+### 5. Plot python and julia comparison
+PyPlot.figure()
+Pos_julia = Matrix(CSV.read("/Users/hanshichen/Desktop/engineering/SoftActiveCells/positions_julia_1.csv", DataFrame))
+Pos_python = Matrix(CSV.read("/Users/hanshichen/Desktop/engineering/SoftActiveCells/positions_python_1.csv", DataFrame))
+maxtime = 1000
+time = 1.0:0.1:100.8
+time[1:999]
+PyPlot.plot(time,sigmasquare(maxtime,256,Pos_python[1:999,:]),label = "Python")
+# Pos_python[1:999,:]
+# Pos_julia
+PyPlot.plot(time,sigmasquare(maxtime,256,Pos_julia),label = "Julia")
+# PyPlot.xticks(range(1, 100))
+
+PyPlot.legend()
+PyPlot.xlabel("time lag")
+PyPlot.ylabel("σ²")
+        
+
+
+# end
+# sims_x/positions_non_averaged_langevin/positions_maxtime=50,dt=0.1,gamma=0.5,kBT=0.25,k=1.0,dev=0.1.csv
+PyPlot.legend()
+PyPlot.savefig("sigma_squared_python_julia.png")
+
+
+## autocorrelation
+PyPlot.figure()
+maxtime_auto = 999
+time_auto = 1.0:0.1:100.7
+
+PyPlot.plot(time_auto,autovar(maxtime_auto,Pos_python[1:999,:]),label = "Python")
+PyPlot.plot(time_auto,autovar(maxtime_auto,Pos_julia),label = "Julia")
+
+PyPlot.xlabel("time lag")
+PyPlot.ylabel("ρ")
+PyPlot.legend()
+PyPlot.savefig("3_autocor_python_julia.png")
+
+### characterization
+y_limit = zero(1)
+K = 1.:0.5:10
+sigma_srt = Float64[]
+
+for k_up in K
+    # for paras in all_combs[i,:]
+        # print(paras)
+        maxtime = 1000 ;fdt =  0.1; fgamma=5.0; fkBT=0.25; fNcells=256; fk=k_up; fdev=0.1;
+        # if fk >= 5.0 && fgamma == fk && maxtime == 1000
+        # if fk == 5.0 && fgamma ==7.5 && maxtime == 1000
+
+        # maxtime = paras[1]; fdt = paras[2]; fgamma = paras[3]; fkBT = paras[4]; fNcells = 256;fk = paras[6];fdev = 0.1;
+        Pos = Matrix(CSV.read(abspath(joinpath(sim_dir,"positions_maxtime=$maxtime,dt=$fdt,gamma=$fgamma,kBT=$fkBT,k=$fk,dev=$fdev.csv")), DataFrame))
+        # PyPlot.plot(sigmasquare(maxtime,256,Pos),label = "maxtime = $maxtime")
+        y = sigmasquare(maxtime,256,Pos)
+        # PyPlot.plot(y ,label = "γ = k = $fgamma")
+        push!(sigma_srt, y[end])
+        # y_fit = 0.00023 .- 0.00023* exp.(-x_data*(fgamma/fk)/30.0)
+
+        # PyPlot.xlabel("time lag")
+        # PyPlot.ylabel("σ²")
+        # y_limit[1] = y[500]
+        # end
+end 
+PyPlot.figure()
+# PyPlot.plot(K,sigma_srt)
+PyPlot.scatter(K,sigma_srt)
+fit_k=CurveFit.curve_fit(ExpFit, K[2:end],sigma_srt[2:end])
+fit_k = CurveFit.curve_fit(Polynomial,K[2:end],sigma_srt[2:end],2)
+fit_k = CurveFit.curve_fit(PowerFit,K,sigma_srt)
+
+sigma_fit = fit_k.(K)
+PyPlot.plot(K,sigma_fit)
+PyPlot.ylabel("σ²")
+PyPlot.xlabel("k")
+PyPlot.savefig("3_k_sigmasquared.png")
